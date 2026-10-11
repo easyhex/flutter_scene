@@ -1022,8 +1022,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double maxDistance,
     int flags,
+    int layerMask,
   ) {
-    final hit = _invokeInt('fsr_world_raycast', [
+    final hit = _invokeInt('fsr_world_raycast_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1034,6 +1035,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(maxDistance),
       _i(1),
       _i(flags),
+      _i(layerMask),
       _i(_hitScratch),
     ]);
     return hit == 0 ? null : _readHit();
@@ -1049,8 +1051,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double maxDistance,
     int flags,
+    int layerMask,
   ) {
-    final count = _invokeInt('fsr_world_raycast_all', [
+    final count = _invokeInt('fsr_world_raycast_all_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1061,6 +1064,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(maxDistance),
       _i(1),
       _i(flags),
+      _i(layerMask),
     ]);
     final results = <RawHit>[];
     for (var i = 0; i < count; i++) {
@@ -1100,14 +1104,16 @@ class WasmRapierBindings extends RapierBindings {
     double cz,
     double radius,
     int flags,
+    int layerMask,
   ) {
-    final count = _invokeInt('fsr_world_overlap_sphere', [
+    final count = _invokeInt('fsr_world_overlap_sphere_masked', [
       _w,
       _f(cx),
       _f(cy),
       _f(cz),
       _f(radius),
       _i(flags),
+      _i(layerMask),
     ]);
     return _drainColliderHandles(count);
   }
@@ -1125,8 +1131,9 @@ class WasmRapierBindings extends RapierBindings {
     double qz,
     double qw,
     int flags,
+    int layerMask,
   ) {
-    final count = _invokeInt('fsr_world_overlap_box', [
+    final count = _invokeInt('fsr_world_overlap_box_masked', [
       _w,
       _f(cx),
       _f(cy),
@@ -1139,6 +1146,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(qz),
       _f(qw),
       _i(flags),
+      _i(layerMask),
     ]);
     return _drainColliderHandles(count);
   }
@@ -1154,8 +1162,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double distance,
     int flags,
+    int layerMask,
   ) {
-    final hit = _invokeInt('fsr_world_shape_cast_sphere', [
+    final hit = _invokeInt('fsr_world_shape_cast_sphere_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1166,6 +1175,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(dz),
       _f(distance),
       _i(flags),
+      _i(layerMask),
       _i(_hitScratch),
     ]);
     return hit == 0 ? null : _readHit();
@@ -1188,8 +1198,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double distance,
     int flags,
+    int layerMask,
   ) {
-    final hit = _invokeInt('fsr_world_shape_cast_box', [
+    final hit = _invokeInt('fsr_world_shape_cast_box_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1206,6 +1217,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(dz),
       _f(distance),
       _i(flags),
+      _i(layerMask),
       _i(_hitScratch),
     ]);
     return hit == 0 ? null : _readHit();
@@ -1227,8 +1239,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double distance,
     int flags,
+    int layerMask,
   ) {
-    final hit = _invokeInt('fsr_world_shape_cast_capsule', [
+    final hit = _invokeInt('fsr_world_shape_cast_capsule_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1244,6 +1257,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(dz),
       _f(distance),
       _i(flags),
+      _i(layerMask),
       _i(_hitScratch),
     ]);
     return hit == 0 ? null : _readHit();
@@ -1265,8 +1279,9 @@ class WasmRapierBindings extends RapierBindings {
     double dz,
     double distance,
     int flags,
+    int layerMask,
   ) {
-    final hit = _invokeInt('fsr_world_shape_cast_cylinder', [
+    final hit = _invokeInt('fsr_world_shape_cast_cylinder_masked', [
       _w,
       _f(ox),
       _f(oy),
@@ -1282,6 +1297,7 @@ class WasmRapierBindings extends RapierBindings {
       _f(dz),
       _f(distance),
       _i(flags),
+      _i(layerMask),
       _i(_hitScratch),
     ]);
     return hit == 0 ? null : _readHit();

@@ -10,10 +10,18 @@ joints, queries, and collision events) against the Rapier engine over
 
 ## Requirements
 
-No Rust toolchain for the supported platforms below. The build hook
-downloads a precompiled library for your target and verifies its checksum.
-Other targets fall back to building from source, which needs
-[Rust](https://rustup.rs/).
+This engine fork requires [Rust](https://rustup.rs/) for native builds.
+Its query-layer-mask fix changes the internal query ABI (`*_masked` exports).
+The upstream prebuilt manifest is intentionally empty so the build hook compiles
+the matching sources instead of downloading an incompatible library. Android
+source builds also require the NDK supplied by Flutter's build configuration.
+
+The upstream platform table below describes published upstream binaries, not
+binaries shipped by this fork. The fork has been exercised on Windows x64,
+Android x64 and WebAssembly. For web, build `native/Cargo.toml` for
+`wasm32-unknown-unknown`, serve the resulting `.wasm`, and provide
+`--dart-define=FLUTTER_SCENE_RAPIER_WASM_URL=<url>`; no fork WASM release is
+configured yet.
 
 ## Platform support
 

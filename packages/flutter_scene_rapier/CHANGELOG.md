@@ -1,3 +1,14 @@
+## Unreleased (engine fork)
+
+* Honor all 32 query layer-mask bits in raycast, raycastAll, overlaps and all
+  four supported shape casts, before selecting the closest hit. Query masks
+  test collider membership independently of collision response masks.
+* Carry masks through native FFI and WASM with new internal `*_masked` symbols.
+  Disable incompatible upstream prebuilts; native builds require Rust and web
+  builds require a matching locally served module.
+* Cover nearest-hit filtering, zero/high-bit masks, body flags, live filter
+  changes and snapshot restoration with native and WASM regressions.
+
 ## 0.5.2
 
 * Widen the `scene` constraint to `^0.4.0`.
