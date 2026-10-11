@@ -45,3 +45,15 @@ Direct loops over the hot structures, no rendering involved, `ms/op`:
 ## Comparing runs
 
 Grab the `BENCH_JSON` line from two runs and diff the numbers. Scenario timings include GPU command encoding but not GPU execution; keep the machine idle and on AC power for stable results.
+
+Schema version 2 additionally records p99, sample counts, paced frames, command
+buffer submissions and separate render CPU populations for calls which did and
+did not submit GPU commands. An empty population has null timings. The original
+phase totals remain available, but include paced/held frames: they are not the
+cost of encoding a new image on every tick. Command submission also does not
+prove GPU completion or a newly presented image; this harness discards pictures.
+
+`--dart-define=BENCH_MAX_GPU_FRAMES_IN_FLIGHT=0` disables pacing to exercise the
+encoding path every frame. This can include driver/backpressure waits and is a
+different workload from the default (`1`); compare only matching settings.
+`gpuExecutionMs` remains null and `presentationMeasured` remains false.

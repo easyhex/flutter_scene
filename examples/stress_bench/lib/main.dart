@@ -6,14 +6,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_scene/scene.dart';
+// Dev-only harness: command submission is not GPU completion or presentation.
+// ignore: implementation_imports
+import 'package:flutter_scene/src/render/frame_transients.dart'
+    show rendererSubmissions;
 
 import 'micro.dart';
+import 'phase_stats.dart';
 import 'scenarios.dart';
 
 const int kWarmupFrames = 20;
 const int kMeasuredFrames = 100;
 const double kDt = 1 / 60;
 const ui.Rect kViewport = ui.Rect.fromLTWH(0, 0, 960, 540);
+const int kMaxGpuFramesInFlight = int.fromEnvironment(
+  'BENCH_MAX_GPU_FRAMES_IN_FLIGHT',
+  defaultValue: 1,
+);
 
 void main() {
   runApp(const BenchApp());
@@ -34,40 +43,15 @@ class BenchApp extends StatelessWidget {
   }
 }
 
-/// Aggregates one phase's per-frame samples.
-class PhaseStats {
-  final List<double> _samples = [];
-
-  void add(double ms) => _samples.add(ms);
-
-  double get mean =>
-      _samples.isEmpty ? 0 : _samples.reduce((a, b) => a + b) / _samples.length;
-
-  double _percentile(double p) {
-    if (_samples.isEmpty) return 0;
-    final sorted = List<double>.from(_samples)..sort();
-    final index = ((sorted.length - 1) * p).round();
-    return sorted[index];
-  }
-
-  double get p50 => _percentile(0.5);
-  double get p95 => _percentile(0.95);
-  double get max =>
-      _samples.isEmpty ? 0 : _samples.reduce((a, b) => a > b ? a : b);
-
-  Map<String, double> toJson() => {
-    'mean': mean,
-    'p50': p50,
-    'p95': p95,
-    'max': max,
-  };
-}
-
 class ScenarioResult {
   ScenarioResult(this.name, this.itemCount);
 
   final String name;
   final int itemCount;
+  int pacedFrames = 0;
+  int commandBuffers = 0;
+  final submittedRender = PhaseStats();
+  final unsubmittedRender = PhaseStats();
   final Map<String, PhaseStats> phases = {
     'mutate': PhaseStats(),
     'update': PhaseStats(),
@@ -106,7 +90,10 @@ class _BenchRunnerState extends State<BenchRunner>
 
   Future<void> _init() async {
     await Scene.initializeStaticResources();
-    _scene = Scene();
+    if (kMaxGpuFramesInFlight < 0) {
+      throw ArgumentError('BENCH_MAX_GPU_FRAMES_IN_FLIGHT must be nonnegative');
+    }
+    _scene = Scene()..maxGpuFramesInFlight = kMaxGpuFramesInFlight;
     _resources = BenchResources();
     _scenarios = [
       StaticField(_resources),
@@ -175,6 +162,8 @@ class _BenchRunnerState extends State<BenchRunner>
       ..start();
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
+    final pacedBefore = scene.pacedFrameCount;
+    final submissionsBefore = rendererSubmissions.latestSubmission;
     scene.render(scenario.camera, canvas, viewport: kViewport, pixelRatio: 1.0);
     recorder.endRecording().dispose();
     sw.stop();
@@ -182,6 +171,13 @@ class _BenchRunnerState extends State<BenchRunner>
     swTotal.stop();
 
     if (_frame >= kWarmupFrames) {
+      final submissions =
+          rendererSubmissions.latestSubmission - submissionsBefore;
+      result.pacedFrames += scene.pacedFrameCount - pacedBefore;
+      result.commandBuffers += submissions;
+      (submissions > 0 ? result.submittedRender : result.unsubmittedRender).add(
+        renderUs / 1000,
+      );
       result.phases['mutate']!.add(mutateUs / 1000);
       result.phases['update']!.add(updateUs / 1000);
       result.phases['bvh']!.add(bvhUs / 1000);
@@ -223,14 +219,19 @@ class _BenchRunnerState extends State<BenchRunner>
         '=== stress_bench ($mode, $kMeasuredFrames frames/scenario, '
         '${kViewport.width.toInt()}x${kViewport.height.toInt()}) ===',
       );
-    if (!kProfileMode) {
+    if (kDebugMode) {
       buffer.writeln('WARNING run with --profile for representative timings');
     }
     for (final result in _results) {
       buffer
         ..writeln('')
         ..writeln('--- ${result.name} (${result.itemCount} items) ---')
-        ..writeln('  phase     mean     p50     p95     max  (ms)');
+        ..writeln('  phase     mean     p50     p95     p99     max  (ms)')
+        ..writeln(
+          '  submitted=${result.submittedRender.count} '
+          'unsubmitted=${result.unsubmittedRender.count} '
+          'paced=${result.pacedFrames} buffers=${result.commandBuffers}',
+        );
       for (final entry in result.phases.entries) {
         final s = entry.value;
         buffer.writeln(
@@ -238,6 +239,7 @@ class _BenchRunnerState extends State<BenchRunner>
           '${s.mean.toStringAsFixed(2).padLeft(7)}'
           '${s.p50.toStringAsFixed(2).padLeft(8)}'
           '${s.p95.toStringAsFixed(2).padLeft(8)}'
+          '${s.p99.toStringAsFixed(2).padLeft(8)}'
           '${s.max.toStringAsFixed(2).padLeft(8)}',
         );
       }
@@ -251,11 +253,23 @@ class _BenchRunnerState extends State<BenchRunner>
       );
     }
     final json = jsonEncode({
+      'schemaVersion': 2,
       'mode': mode,
+      'measurement': 'cpu_wall_time_including_encode_and_submit_waits',
+      'gpuExecutionMs': null,
+      'presentationMeasured': false,
+      'warmupFrames': kWarmupFrames,
+      'measuredFrames': kMeasuredFrames,
+      'viewport': {'width': kViewport.width, 'height': kViewport.height},
+      'maxGpuFramesInFlight': kMaxGpuFramesInFlight,
       'scenarios': {
         for (final r in _results)
           r.name: {
             'items': r.itemCount,
+            'pacedFrames': r.pacedFrames,
+            'commandBuffers': r.commandBuffers,
+            'submittedRender': r.submittedRender.toJson(),
+            'unsubmittedRender': r.unsubmittedRender.toJson(),
             for (final e in r.phases.entries) e.key: e.value.toJson(),
           },
       },
